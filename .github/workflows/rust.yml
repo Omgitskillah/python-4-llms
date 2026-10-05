@@ -1,0 +1,35 @@
+name: Python MCP verification
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Check formatting
+        run: cargo fmt --all --check
+      - name: Unit, lifecycle, and MCP protocol tests
+        run: cargo test --locked
+      - name: Lint
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Build pinned Python sandbox
+        run: docker build --file sandbox/Dockerfile --tag python-4-llms-sandbox:0.1.0 .
+      - name: Configure immutable local image
+        run: |
+          image_id=$(docker image inspect --format '{{.Id}}' python-4-llms-sandbox:0.1.0)
+          echo "PYTHON_MCP_IMAGE=$image_id" >> "$GITHUB_ENV"
+      - name: Real Docker isolation and resource tests
+        run: cargo test --locked --test docker_sandbox -- --ignored --nocapture
