@@ -128,3 +128,43 @@ print('isolated')
     assert_eq!(pids["status"], "SUCCESS", "{pids}");
     process.close().await;
 }
+
+#[tokio::test]
+#[ignore = "requires a real local Docker engine and rebuilt PYTHON_MCP_IMAGE"]
+async fn real_script_errors_include_source_without_adapter_frames() {
+    let config = Config::from_env().expect("Docker test configuration");
+    config
+        .preflight()
+        .await
+        .expect("required runtime protections");
+    let mut process = McpProcess::start(&config).await;
+    let source = "print('partial')\ndef fit():\n    return [1, 2] - 1.0\nfit()\n";
+    let result = run(&mut process, source, "", 10000).await;
+    assert_eq!(result["status"], "SCRIPT_ERROR", "{result}");
+    assert_eq!(result["stdout"], "partial\n", "{result}");
+    let error = result["stderr"].as_str().unwrap();
+    assert!(error.contains("line 3, in fit"), "{result}");
+    assert!(error.contains("return [1, 2] - 1.0"), "{result}");
+    assert!(error.contains("TypeError:"), "{result}");
+    assert!(!error.contains("/opt/runner.py"), "{result}");
+    let result = run(&mut process, "if True\n    pass\n", "", 10000).await;
+    assert_eq!(result["status"], "SCRIPT_ERROR", "{result}");
+    let error = result["stderr"].as_str().unwrap();
+    assert!(
+        error.contains("if True") && error.contains("SyntaxError:"),
+        "{result}"
+    );
+    assert!(!error.contains("/opt/runner.py"), "{result}");
+    let result = run(&mut process,
+        "try:\n    [1, 2] - 1.0\nexcept TypeError as cause:\n    raise ExceptionGroup('fit errors', [cause]) from None\n",
+        "", 10000).await;
+    assert_eq!(result["status"], "SCRIPT_ERROR", "{result}");
+    let error = result["stderr"].as_str().unwrap();
+    assert!(error.contains("ExceptionGroup: fit errors"), "{result}");
+    assert!(
+        error.contains("[1, 2] - 1.0") && error.contains("TypeError:"),
+        "{result}"
+    );
+    assert!(!error.contains("/opt/runner.py"), "{result}");
+    process.close().await;
+}

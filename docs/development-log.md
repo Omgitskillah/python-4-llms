@@ -71,3 +71,15 @@
 - cargo build --locked --offline --release --manifest-path python-4-llms/Cargo.toml passed after the final source changes; target/release/python-mcp --help exited successfully.
 - Reviewed the complete staged change set and git diff --cached --check passed. All 20 new files belong to this implementation, its contract/setup docs, tests, lockfile, or CI.
 - Changes are staged in the independent python-4-llms checkout. No commit or push was made. GitHub Actions is configured but has not been run remotely; Linux-specific runtime behavior has not been verified locally.
+
+
+## 2026-10-06: script source in error diagnostics
+
+Unhandled errors now show the submitted `script.py` source line and exception,
+without adapter frames. Source is registered in linecache without writing files.
+Chained exceptions and exception groups retain script/library frames; syntax
+carets, partial stdout, exit status and the MCP result schema remain intact.
+Five focused adapter tests and a real Docker/MCP diagnostic test cover runtime,
+syntax, chained/grouped errors and exit behavior. The system-python group test
+handles Python before 3.11; the actual pinned Python 3.14 container exercises groups.
+A rebuilt immutable sandbox image is required; old images keep old diagnostics.
