@@ -95,7 +95,11 @@ The MCP response includes both `structuredContent` and an equivalent JSON text
 fallback. Failures set `isError: true`. Malformed parameter shapes are rejected
 by the MCP SDK; valid parameter shapes that exceed limits return `INVALID_INPUT`.
 Read `ok` and `status` before using output, since failures can include partial
-stdout/stderr.
+stdout/stderr. Unhandled script errors include the failing `script.py` source
+line and exception type. Input-adapter frames are omitted, including in chained
+exceptions and exception groups; script and library frames remain. Syntax errors
+retain their source line and caret. These diagnostics do not change exit codes
+or the `SCRIPT_ERROR` result contract.
 
 | Limit | Value |
 | --- | --- |
